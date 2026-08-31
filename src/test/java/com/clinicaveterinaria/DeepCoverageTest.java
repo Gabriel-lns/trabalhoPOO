@@ -4,7 +4,9 @@ import com.clinicaveterinaria.control.ControladorAtendimento;
 import com.clinicaveterinaria.control.ControladorCadastros;
 import com.clinicaveterinaria.control.ControladorConsulta;
 import com.clinicaveterinaria.control.ControladorFinanceiro;
-import com.clinicaveterinaria.entity.*;
+import com.clinicaveterinaria.entity.Consulta;
+import com.clinicaveterinaria.entity.Exame;
+import com.clinicaveterinaria.entity.Vacina;
 import com.clinicaveterinaria.entity.enums.MetodoPagamento;
 import com.clinicaveterinaria.entity.enums.StatusConsulta;
 import com.clinicaveterinaria.patterns.strategy.DebitCardPaymentStrategy;
@@ -12,14 +14,13 @@ import com.clinicaveterinaria.patterns.strategy.PagamentoResult;
 import com.clinicaveterinaria.patterns.strategy.PagamentoStrategy;
 import com.clinicaveterinaria.patterns.strategy.PixPaymentStrategy;
 import com.clinicaveterinaria.repository.*;
+import com.clinicaveterinaria.repository.sqlite.SqliteRepositoryFactory;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.sql.Connection;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -51,11 +52,12 @@ public class DeepCoverageTest {
     @Test
     @DisplayName("Repositórios: buscas por inexistentes e listagens vazias")
     void testRepositoriosInexistentes() {
-        TutorRepository tutorRepo = new TutorRepository();
-        VeterinarioRepository vetRepo = new VeterinarioRepository();
-        AnimalRepository animalRepo = new AnimalRepository();
-        ConsultaRepository consultaRepo = new ConsultaRepository();
-        PagamentoRepository pagRepo = new PagamentoRepository();
+        RepositoryFactory factory = RepositoryFactory.getInstance();
+        TutorRepository tutorRepo = factory.getTutorRepository();
+        VeterinarioRepository vetRepo = factory.getVeterinarioRepository();
+        AnimalRepository animalRepo = factory.getAnimalRepository();
+        ConsultaRepository consultaRepo = factory.getConsultaRepository();
+        PagamentoRepository pagRepo = factory.getPagamentoRepository();
 
         assertTrue(tutorRepo.buscarPorCpf("CPF-INEXISTENTE-000").isEmpty());
         assertTrue(vetRepo.buscarPorCrmv("CRMV-INEXISTENTE-000").isEmpty());
@@ -84,21 +86,25 @@ public class DeepCoverageTest {
     @Test
     @DisplayName("Controladores: injeção de dependência via construtores parametrizados")
     void testControladoresConstrutoresParametrizados() {
-        ConsultaRepository cRepo = new ConsultaRepository();
-        AnimalRepository aRepo = new AnimalRepository();
-        VeterinarioRepository vRepo = new VeterinarioRepository();
-        ProntuarioRepository pRepo = new ProntuarioRepository();
-        ExameRepository eRepo = new ExameRepository();
-        VacinaRepository vacRepo = new VacinaRepository();
-        PagamentoRepository pagRepo = new PagamentoRepository();
+        RepositoryFactory factory = SqliteRepositoryFactory.getInstance();
+        ConsultaRepository cRepo = factory.getConsultaRepository();
+        AnimalRepository aRepo = factory.getAnimalRepository();
+        VeterinarioRepository vRepo = factory.getVeterinarioRepository();
+        ProntuarioRepository pRepo = factory.getProntuarioRepository();
+        ExameRepository eRepo = factory.getExameRepository();
+        VacinaRepository vacRepo = factory.getVacinaRepository();
+        PagamentoRepository pagRepo = factory.getPagamentoRepository();
+        TutorRepository tRepo = factory.getTutorRepository();
 
         ControladorConsulta ctrlC = new ControladorConsulta(cRepo, aRepo, vRepo);
         ControladorAtendimento ctrlA = new ControladorAtendimento(cRepo, pRepo, eRepo, vacRepo);
         ControladorFinanceiro ctrlF = new ControladorFinanceiro(cRepo, pagRepo);
+        ControladorCadastros ctrlCad = new ControladorCadastros(tRepo, aRepo, vRepo);
 
         assertNotNull(ctrlC.listarTodasConsultas());
         assertNotNull(ctrlA.listarConsultasParaAtendimento());
         assertNotNull(ctrlF.listarConsultasPendentesPagamento());
+        assertNotNull(ctrlCad.listarTutores());
     }
 
     @Test

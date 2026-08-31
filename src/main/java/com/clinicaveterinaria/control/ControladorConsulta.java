@@ -6,14 +6,15 @@ import com.clinicaveterinaria.entity.Veterinario;
 import com.clinicaveterinaria.entity.enums.StatusConsulta;
 import com.clinicaveterinaria.repository.AnimalRepository;
 import com.clinicaveterinaria.repository.ConsultaRepository;
+import com.clinicaveterinaria.repository.RepositoryFactory;
 import com.clinicaveterinaria.repository.VeterinarioRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Controlador de Agendamento de Consultas.
- * Mapeado diretamente do diagrama de sequência SD01 - Agendar Consulta.
+ * Controlador de Agendamento e Recepção (BCE).
+ * Aplica Inversão de Dependência (DIP) dependendo exclusivamente de interfaces de repositório.
  */
 public class ControladorConsulta {
     private final ConsultaRepository consultaRepository;
@@ -21,9 +22,10 @@ public class ControladorConsulta {
     private final VeterinarioRepository veterinarioRepository;
 
     public ControladorConsulta() {
-        this.consultaRepository = new ConsultaRepository();
-        this.animalRepository = new AnimalRepository();
-        this.veterinarioRepository = new VeterinarioRepository();
+        RepositoryFactory factory = RepositoryFactory.getInstance();
+        this.consultaRepository = factory.getConsultaRepository();
+        this.animalRepository = factory.getAnimalRepository();
+        this.veterinarioRepository = factory.getVeterinarioRepository();
     }
 
     public ControladorConsulta(ConsultaRepository consultaRepository, AnimalRepository animalRepository, VeterinarioRepository veterinarioRepository) {
@@ -33,35 +35,39 @@ public class ControladorConsulta {
     }
 
     /**
-     * Valida conflito de agenda do veterinário no horário solicitado (RN09 / SD01).
+     * Solicita um novo agendamento validando regras de negócio (SD01 - Mensagem 2).
      */
-    public boolean validarConflitoDeHorario(String crmvVet, LocalDateTime dataHora) {
-        List<Consulta> conflitos = consultaRepository.buscarConsultasPorVeterinarioEData(crmvVet, dataHora);
-        return !conflitos.isEmpty();
-    }
-
-    /**
-     * Executa a solicitação de agendamento validando regras de negócio (RN04, RN06, RN09).
-     */
-    public Consulta solicitarAgendamento(String crmvVet, int idAnimal, LocalDateTime dataHora, double valor) {
-        // RN04: Animal deve estar cadastrado
+    public Consulta solicitarAgendamento(String crmvVeterinario, int idAnimal, LocalDateTime dataHora, double valor) {
+        // 1. Validar existência do Animal (RN04)
         Animal animal = animalRepository.buscarPorId(idAnimal)
                 .orElseThrow(() -> new IllegalArgumentException("RN04: Animal com ID " + idAnimal + " não foi encontrado no sistema."));
 
-        // RN06: Veterinário deve estar cadastrado
-        Veterinario vet = veterinarioRepository.buscarPorCrmv(crmvVet)
-                .orElseThrow(() -> new IllegalArgumentException("RN06: Veterinário com CRMV " + crmvVet + " não foi encontrado."));
+        // 2. Validar existência do Veterinário (RN06)
+        Veterinario vet = veterinarioRepository.buscarPorCrmv(crmvVeterinario)
+                .orElseThrow(() -> new IllegalArgumentException("RN06: Veterinário com CRMV " + crmvVeterinario + " não encontrado."));
 
-        // RN09: Validação de conflito de agenda
-        if (validarConflitoDeHorario(crmvVet, dataHora)) {
-            throw new IllegalStateException("RN09: Conflito de Horário! O veterinário " + vet.getNome() + " já possui consulta marcada próximo a este horário.");
-        }
+        // 3. Validar Conflito de Horário (RN09 / SD01 - Mensagem 5)
+        validarConflitoDeHorario(crmvVeterinario, dataHora);
 
-        // Criar e salvar nova consulta
-        Consulta novaConsulta = new Consulta(0, dataHora, valor, animal, vet);
-        novaConsulta.setStatus(StatusConsulta.AGENDADA);
+        // 4. Instanciar Consulta via Static Factory Method (Creator Pattern)
+        Consulta novaConsulta = Consulta.criarAgendamento(animal, vet, dataHora, valor);
 
+        // 5. Salvar na persistência
         return consultaRepository.salvar(novaConsulta);
+    }
+
+    /**
+     * Validação interna de conflito de agenda médica (RN09).
+     */
+    public void validarConflitoDeHorario(String crmvVeterinario, LocalDateTime dataHora) {
+        LocalDateTime inicioJanela = dataHora.minusMinutes(29);
+        LocalDateTime fimJanela = dataHora.plusMinutes(29);
+
+        List<Consulta> conflitos = consultaRepository.buscarPorVeterinarioEPeriodo(crmvVeterinario, inicioJanela, fimJanela);
+        if (!conflitos.isEmpty()) {
+            throw new IllegalStateException("RN09: Conflito de agenda! O veterinário já possui uma consulta agendada às " +
+                    conflitos.get(0).getDataHora().toLocalTime() + " neste mesmo dia.");
+        }
     }
 
     public void cancelarAgendamento(int idConsulta) {
@@ -72,11 +78,11 @@ public class ControladorConsulta {
         consultaRepository.atualizar(consulta);
     }
 
-    public List<Consulta> listarConsultasAgendadas() {
-        return consultaRepository.listarPorStatus(StatusConsulta.AGENDADA);
+    public List<Consulta> listarTodasConsultas() {
+        return consultaRepository.listarTodas();
     }
 
-    public List<Consulta> listarTodasConsultas() {
-        return consultaRepository.listarTodos();
+    public List<Consulta> listarConsultasAgendadas() {
+        return consultaRepository.listarPorStatus(StatusConsulta.AGENDADA);
     }
 }

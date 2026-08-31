@@ -5,10 +5,6 @@ import com.clinicaveterinaria.entity.enums.MetodoPagamento;
 
 import java.util.UUID;
 
-/**
- * Estratégia concreta para pagamentos via PIX.
- * Aplica validação de chave e geração de transação instantânea.
- */
 public class PixPaymentStrategy implements PagamentoStrategy {
 
     @Override
@@ -17,9 +13,9 @@ public class PixPaymentStrategy implements PagamentoStrategy {
             return PagamentoResult.falha("Valor para cobrança via PIX deve ser maior que zero.");
         }
 
+        String nomeAnimal = (consulta != null && consulta.getAnimal() != null) ? consulta.getAnimal().getNome() : "Não especificado";
         String codigoPix = "PIX-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        String detalhes = "Método: PIX Banco Central | Liquidação em tempo real | Paciente: " +
-                (consulta.getAnimal() != null ? consulta.getAnimal().getNome() : "Não especificado");
+        String detalhes = "Método: PIX Banco Central | Liquidação em tempo real | Paciente: " + nomeAnimal;
 
         return PagamentoResult.sucesso(codigoPix, valor, detalhes);
     }

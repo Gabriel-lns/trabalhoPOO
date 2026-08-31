@@ -4,6 +4,7 @@ import com.clinicaveterinaria.entity.Animal;
 import com.clinicaveterinaria.entity.Tutor;
 import com.clinicaveterinaria.entity.Veterinario;
 import com.clinicaveterinaria.repository.AnimalRepository;
+import com.clinicaveterinaria.repository.RepositoryFactory;
 import com.clinicaveterinaria.repository.TutorRepository;
 import com.clinicaveterinaria.repository.VeterinarioRepository;
 
@@ -11,7 +12,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Controlador para manutenção de cadastros básicos (Tutores, Animais e Veterinários).
+ * Controlador de Cadastros Básicos (BCE).
+ * Aplica Inversão de Dependência (DIP).
  */
 public class ControladorCadastros {
     private final TutorRepository tutorRepository;
@@ -19,9 +21,16 @@ public class ControladorCadastros {
     private final VeterinarioRepository veterinarioRepository;
 
     public ControladorCadastros() {
-        this.tutorRepository = new TutorRepository();
-        this.animalRepository = new AnimalRepository();
-        this.veterinarioRepository = new VeterinarioRepository();
+        RepositoryFactory factory = RepositoryFactory.getInstance();
+        this.tutorRepository = factory.getTutorRepository();
+        this.animalRepository = factory.getAnimalRepository();
+        this.veterinarioRepository = factory.getVeterinarioRepository();
+    }
+
+    public ControladorCadastros(TutorRepository tutorRepository, AnimalRepository animalRepository, VeterinarioRepository veterinarioRepository) {
+        this.tutorRepository = tutorRepository;
+        this.animalRepository = animalRepository;
+        this.veterinarioRepository = veterinarioRepository;
     }
 
     public Tutor cadastrarTutor(String cpf, String nome, String telefone, String endereco) {
@@ -29,8 +38,7 @@ public class ControladorCadastros {
             throw new IllegalArgumentException("CPF e Nome são obrigatórios para o cadastro de Tutor.");
         }
         Tutor tutor = new Tutor(cpf, nome, telefone, endereco);
-        tutorRepository.salvar(tutor);
-        return tutor;
+        return tutorRepository.salvar(tutor);
     }
 
     public Animal cadastrarAnimal(String nome, String especie, String raca, LocalDate dataNascimento, String tutorCpf) {
@@ -49,8 +57,7 @@ public class ControladorCadastros {
             throw new IllegalArgumentException("CRMV e Nome são obrigatórios para o cadastro de Veterinário.");
         }
         Veterinario vet = new Veterinario(crmv, nome, especialidade, telefone);
-        veterinarioRepository.salvar(vet);
-        return vet;
+        return veterinarioRepository.salvar(vet);
     }
 
     public List<Tutor> listarTutores() {

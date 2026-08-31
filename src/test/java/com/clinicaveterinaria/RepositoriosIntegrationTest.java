@@ -36,14 +36,15 @@ public class RepositoriosIntegrationTest {
         DatabaseManager.setDatabasePath(testDb);
         DatabaseManager.inicializarBanco();
 
-        tutorRepo = new TutorRepository();
-        vetRepo = new VeterinarioRepository();
-        animalRepo = new AnimalRepository();
-        prontuarioRepo = new ProntuarioRepository();
-        exameRepo = new ExameRepository();
-        vacinaRepo = new VacinaRepository();
-        consultaRepo = new ConsultaRepository();
-        pagamentoRepo = new PagamentoRepository();
+        RepositoryFactory factory = RepositoryFactory.getInstance();
+        tutorRepo = factory.getTutorRepository();
+        vetRepo = factory.getVeterinarioRepository();
+        animalRepo = factory.getAnimalRepository();
+        prontuarioRepo = factory.getProntuarioRepository();
+        exameRepo = factory.getExameRepository();
+        vacinaRepo = factory.getVacinaRepository();
+        consultaRepo = factory.getConsultaRepository();
+        pagamentoRepo = factory.getPagamentoRepository();
     }
 
     @Test

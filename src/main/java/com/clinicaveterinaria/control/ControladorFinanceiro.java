@@ -6,21 +6,22 @@ import com.clinicaveterinaria.entity.enums.MetodoPagamento;
 import com.clinicaveterinaria.entity.enums.StatusConsulta;
 import com.clinicaveterinaria.repository.ConsultaRepository;
 import com.clinicaveterinaria.repository.PagamentoRepository;
+import com.clinicaveterinaria.repository.RepositoryFactory;
 
-import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Controlador Financeiro e de Caixa.
- * Mapeado diretamente do diagrama de sequência SD03 - Registrar Pagamento.
+ * Controlador Financeiro e de Caixa (BCE).
+ * Aplica Inversão de Dependência (DIP) e os padrões Strategy e State.
  */
 public class ControladorFinanceiro {
     private final ConsultaRepository consultaRepository;
     private final PagamentoRepository pagamentoRepository;
 
     public ControladorFinanceiro() {
-        this.consultaRepository = new ConsultaRepository();
-        this.pagamentoRepository = new PagamentoRepository();
+        RepositoryFactory factory = RepositoryFactory.getInstance();
+        this.consultaRepository = factory.getConsultaRepository();
+        this.pagamentoRepository = factory.getPagamentoRepository();
     }
 
     public ControladorFinanceiro(ConsultaRepository consultaRepository, PagamentoRepository pagamentoRepository) {
@@ -30,7 +31,7 @@ public class ControladorFinanceiro {
 
     /**
      * Busca dados para pagamento da consulta realizada (SD03 - Mensagem 2).
-     * Valida a Regra de Negócio RN07 (pagamento só permitido após consulta Realizada).
+     * Valida a Regra de Negócio RN07.
      */
     public Consulta buscarDadosPagamento(int idConsulta) {
         Consulta consulta = consultaRepository.buscarPorId(idConsulta)
@@ -44,24 +45,23 @@ public class ControladorFinanceiro {
     }
 
     /**
-     * Processa o pagamento gerando a instância de Pagamento e quitando a consulta (SD03 - Mensagem 7 a 9).
-     * Utiliza o Padrão Strategy para execução do pagamento e Padrão State para transição da Consulta.
+     * Processa o pagamento gerando a instância de Pagamento via Static Factory Method e quitando a consulta (SD03).
      */
     public Pagamento processarPagamento(int idConsulta, MetodoPagamento metodo) {
-        // 1. Obter e validar consulta
+        // 1. Obter e validar consulta (RN07)
         Consulta consulta = buscarDadosPagamento(idConsulta);
         double valor = consulta.getValorConsulta();
 
-        // 2. Instanciar Pagamento (<<create>> SD03)
-        Pagamento pagamento = new Pagamento(0, LocalDate.now(), valor, metodo, idConsulta);
+        // 2. Instanciar Pagamento via Static Factory Method (Creator Pattern)
+        Pagamento pagamento = Pagamento.criarPagamento(idConsulta, valor, metodo);
 
         // 3. Processar via Strategy Pattern
         boolean sucesso = pagamento.processarPagamento(consulta);
         if (!sucesso) {
-            throw new RuntimeException("Falha ao processar pagamento com a operadora/método " + metodo.getDescricao());
+            throw new RuntimeException("Falha ao processar pagamento com o método " + metodo.getDescricao());
         }
 
-        // 4. Salvar pagamento no banco SQLite
+        // 4. Salvar pagamento na camada de persistência
         pagamento = pagamentoRepository.salvar(pagamento);
 
         // 5. Transicionar status da consulta para "Paga" via State Pattern

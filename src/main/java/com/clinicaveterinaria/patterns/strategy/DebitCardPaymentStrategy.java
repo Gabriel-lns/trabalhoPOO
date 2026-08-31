@@ -5,19 +5,17 @@ import com.clinicaveterinaria.entity.enums.MetodoPagamento;
 
 import java.util.UUID;
 
-/**
- * Estratégia concreta para pagamentos via Cartão de Débito.
- */
 public class DebitCardPaymentStrategy implements PagamentoStrategy {
 
     @Override
     public PagamentoResult processar(double valor, Consulta consulta) {
         if (valor <= 0) {
-            return PagamentoResult.falha("Valor para cobrança via Cartão de Débito deve ser maior que zero.");
+            return PagamentoResult.falha("Valor da transação com Cartão de Débito deve ser positivo.");
         }
 
         String nsu = "NSU-CD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        String detalhes = "Método: Cartão de Débito | Débito em Conta Autorizado";
+        String nomeAnimal = (consulta != null && consulta.getAnimal() != null) ? consulta.getAnimal().getNome() : "Não especificado";
+        String detalhes = "Operadora: Elo/Visa Eletron | Débito em Conta | NSU: " + nsu + " | Paciente: " + nomeAnimal;
 
         return PagamentoResult.sucesso(nsu, valor, detalhes);
     }

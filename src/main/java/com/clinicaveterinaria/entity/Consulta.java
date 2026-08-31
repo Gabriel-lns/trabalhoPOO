@@ -12,120 +12,138 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Entidade central Consulta conforme modelado no Astah.
- * O ciclo de vida e regras de transição de estado são geridos pelo Padrão STATE (GoF).
+ * Entidade de Domínio: Consulta Veterinária.
+ * Utiliza o Padrão STATE para gerenciar seu ciclo de vida.
+ * Utiliza Static Factory Method para criação consistente.
  */
 public class Consulta {
     private int idConsulta;
     private LocalDateTime dataHora;
-    private ConsultaState estado;
+    private StatusConsulta status;
     private double valor;
     private String observacoes;
+
+    // Relacionamentos do Astah
     private Animal animal;
     private Veterinario veterinario;
     private Pagamento pagamento;
-    private final List<Exame> exames = new ArrayList<>();
-    private final List<Vacina> vacinas = new ArrayList<>();
+    private final List<Exame> exames;
+    private final List<Vacina> vacinas;
+
+    // Referência ao estado atual (State Pattern)
+    private ConsultaState estado;
 
     public Consulta() {
-        this.estado = new AgendadaState();
+        this.exames = new ArrayList<>();
+        this.vacinas = new ArrayList<>();
         this.dataHora = LocalDateTime.now();
-        this.valor = 150.0; // Valor padrão de consulta clínica
+        this.valor = 150.0;
+        this.status = StatusConsulta.AGENDADA;
+        this.estado = new AgendadaState();
         this.observacoes = "";
     }
 
     public Consulta(int idConsulta, LocalDateTime dataHora, double valor, Animal animal, Veterinario veterinario) {
         this.idConsulta = idConsulta;
         this.dataHora = dataHora != null ? dataHora : LocalDateTime.now();
-        this.valor = valor >= 0 ? valor : 150.0;
+        this.valor = valor;
         this.animal = animal;
         this.veterinario = veterinario;
+        this.status = StatusConsulta.AGENDADA;
         this.estado = new AgendadaState();
         this.observacoes = "";
+        this.exames = new ArrayList<>();
+        this.vacinas = new ArrayList<>();
     }
 
     // ==========================================
-    // Métodos de Ciclo de Vida (Padrão STATE)
-    // Conforme Diagrama de Classes e Estados
+    // STATIC FACTORY METHODS (Creator Pattern)
     // ==========================================
 
     /**
-     * Agenda a consulta.
-     * Conforme diagrama de classes do Astah.
+     * Cria um novo agendamento consistente no estado Agendada.
      */
+    public static Consulta criarAgendamento(Animal animal, Veterinario veterinario, LocalDateTime dataHora, double valor) {
+        if (animal == null) {
+            throw new IllegalArgumentException("RN04: Animal não pode ser nulo para agendamento.");
+        }
+        if (veterinario == null) {
+            throw new IllegalArgumentException("RN06: Veterinário não pode ser nulo para agendamento.");
+        }
+        if (dataHora == null) {
+            throw new IllegalArgumentException("Data e hora da consulta são obrigatórias.");
+        }
+        if (valor <= 0) {
+            throw new IllegalArgumentException("Valor da consulta deve ser positivo.");
+        }
+
+        Consulta c = new Consulta(0, dataHora, valor, animal, veterinario);
+        c.setEstadoInterno(new AgendadaState());
+        return c;
+    }
+
+    /**
+     * Reconstrói uma consulta existente vinda da base de dados com seu estado preservado.
+     */
+    public static Consulta reconstruir(int idConsulta, LocalDateTime dataHora, double valor, StatusConsulta status, String observacoes, Animal animal, Veterinario veterinario) {
+        Consulta c = new Consulta(idConsulta, dataHora, valor, animal, veterinario);
+        c.setStatus(status);
+        c.setObservacoes(observacoes != null ? observacoes : "");
+        c.setEstadoInterno(ConsultaStateFactory.criarEstado(status));
+        return c;
+    }
+
+    // ==========================================
+    // MÉTODOS DE NEGÓCIO DELEGADOS AO STATE
+    // ==========================================
+
     public boolean agendar() {
         try {
             this.estado.agendar(this);
             return true;
-        } catch (Exception e) {
+        } catch (IllegalStateException e) {
             return false;
         }
     }
 
-    /**
-     * Inicia o atendimento clínico da consulta.
-     * Conforme diagrama de classes do Astah.
-     */
     public void iniciar() {
         this.estado.iniciar(this);
     }
 
-    /**
-     * Finaliza o atendimento clínico.
-     * Conforme diagrama de classes do Astah.
-     */
-    public void finalizar() {
-        this.estado.finalizar(this, this.observacoes);
+    public void finalizar(String diagnostico) {
+        this.estado.finalizar(this, diagnostico);
     }
 
-    /**
-     * Sobrecarga para finalizar inserindo o diagnóstico/observações médicas.
-     */
-    public void finalizar(String observacoesClinicas) {
-        this.estado.finalizar(this, observacoesClinicas);
-    }
-
-    /**
-     * Cancela o agendamento da consulta.
-     * Conforme diagrama de classes do Astah.
-     */
     public void cancelar() {
         this.estado.cancelar(this);
     }
 
-    /**
-     * Efetiva o pagamento e quitação da consulta.
-     */
     public void pagar(Pagamento pagamento) {
         this.estado.pagar(this, pagamento);
     }
 
-    /**
-     * Retorna o valor calculado da consulta para o caixa.
-     * Usado no diagrama de sequência SD03.
-     */
     public double getValorConsulta() {
         return this.valor;
     }
 
+    // Gestão de Coleções
     public void adicionarExame(Exame exame) {
-        if (exame != null && !exames.contains(exame)) {
-            exames.add(exame);
-            exame.setIdConsultaOrigem(this.idConsulta);
-        }
+        if (exame != null) this.exames.add(exame);
     }
 
     public void adicionarVacina(Vacina vacina) {
-        if (vacina != null && !vacinas.contains(vacina)) {
-            vacinas.add(vacina);
-            vacina.setIdConsultaOrigem(this.idConsulta);
-        }
+        if (vacina != null) this.vacinas.add(vacina);
     }
 
-    // ==========================================
-    // Getters e Setters
-    // ==========================================
+    public List<Exame> getExames() {
+        return Collections.unmodifiableList(exames);
+    }
 
+    public List<Vacina> getVacinas() {
+        return Collections.unmodifiableList(vacinas);
+    }
+
+    // Getters e Setters
     public int getIdConsulta() {
         return idConsulta;
     }
@@ -143,23 +161,12 @@ public class Consulta {
     }
 
     public StatusConsulta getStatus() {
-        return estado.getStatus();
+        return status;
     }
 
     public void setStatus(StatusConsulta status) {
+        this.status = status;
         this.estado = ConsultaStateFactory.criarEstado(status);
-    }
-
-    public void setStatus(String statusStr) {
-        this.estado = ConsultaStateFactory.criarEstado(StatusConsulta.fromString(statusStr));
-    }
-
-    public ConsultaState getEstadoInterno() {
-        return estado;
-    }
-
-    public void setEstadoInterno(ConsultaState novoEstado) {
-        this.estado = Objects.requireNonNull(novoEstado, "Estado não pode ser nulo");
     }
 
     public double getValor() {
@@ -202,18 +209,26 @@ public class Consulta {
         this.pagamento = pagamento;
     }
 
-    public List<Exame> getExames() {
-        return Collections.unmodifiableList(exames);
+    public ConsultaState getEstadoInterno() {
+        return estado;
     }
 
-    public List<Vacina> getVacinas() {
-        return Collections.unmodifiableList(vacinas);
+    public void setEstadoInterno(ConsultaState estado) {
+        this.estado = estado;
+        if (estado != null) {
+            this.status = estado.getStatus();
+        }
+    }
+
+    public void setEstado(ConsultaState estado) {
+        setEstadoInterno(estado);
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Consulta consulta)) return false;
+        if (o == null || getClass() != o.getClass()) return false;
+        Consulta consulta = (Consulta) o;
         return idConsulta == consulta.idConsulta;
     }
 
@@ -224,8 +239,7 @@ public class Consulta {
 
     @Override
     public String toString() {
-        return "Consulta #" + idConsulta + " - " + (animal != null ? animal.getNome() : "Animal") +
-                " com " + (veterinario != null ? veterinario.getNome() : "Veterinário") +
-                " [" + getStatus().getDescricao() + "]";
+        return "Consulta #" + idConsulta + " - " + (animal != null ? animal.getNome() : "Sem animal") +
+                " [" + status.getDescricao() + "] - R$ " + String.format("%.2f", valor);
     }
 }

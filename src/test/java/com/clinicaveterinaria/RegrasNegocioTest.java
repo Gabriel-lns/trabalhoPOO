@@ -5,10 +5,7 @@ import com.clinicaveterinaria.entity.Animal;
 import com.clinicaveterinaria.entity.Prontuario;
 import com.clinicaveterinaria.entity.Tutor;
 import com.clinicaveterinaria.entity.Veterinario;
-import com.clinicaveterinaria.repository.AnimalRepository;
-import com.clinicaveterinaria.repository.DatabaseManager;
-import com.clinicaveterinaria.repository.TutorRepository;
-import com.clinicaveterinaria.repository.VeterinarioRepository;
+import com.clinicaveterinaria.repository.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -65,9 +62,10 @@ public class RegrasNegocioTest {
     @DisplayName("RN09: Conflito de horário do mesmo veterinário")
     void testConflitoHorarioVeterinario() {
         ControladorConsulta ctrl = new ControladorConsulta();
-        AnimalRepository animalRepo = new AnimalRepository();
-        VeterinarioRepository vetRepo = new VeterinarioRepository();
-        TutorRepository tutorRepo = new TutorRepository();
+        RepositoryFactory factory = RepositoryFactory.getInstance();
+        AnimalRepository animalRepo = factory.getAnimalRepository();
+        VeterinarioRepository vetRepo = factory.getVeterinarioRepository();
+        TutorRepository tutorRepo = factory.getTutorRepository();
 
         // Garantir dados base
         Tutor tutor = new Tutor("999.111.222-33", "Teste Tutor", "9999", "Rua X");

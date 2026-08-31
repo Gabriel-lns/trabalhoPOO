@@ -9,8 +9,9 @@ import java.time.LocalDate;
 import java.util.Objects;
 
 /**
- * Entidade Pagamento conforme modelado no Astah.
- * Representa a liquidação financeira de uma Consulta realizada.
+ * Entidade de Domínio: Pagamento de Consulta.
+ * Utiliza o Padrão STRATEGY para executar o algoritmo correspondente.
+ * Utiliza Static Factory Method para instanciação controlada.
  */
 public class Pagamento {
     private int idPagamento;
@@ -20,10 +21,15 @@ public class Pagamento {
     private int idConsulta;
     private String codigoTransacao;
     private String comprovante;
+
+    // Estratégia de Pagamento (Strategy Pattern)
+    private PagamentoStrategy strategy;
     private boolean processadoComSucesso;
 
     public Pagamento() {
         this.dataPagamento = LocalDate.now();
+        this.metodoPagamento = MetodoPagamento.PIX;
+        this.strategy = PagamentoStrategyFactory.obterEstrategia(this.metodoPagamento);
     }
 
     public Pagamento(int idPagamento, LocalDate dataPagamento, double valorPago, MetodoPagamento metodoPagamento, int idConsulta) {
@@ -32,40 +38,63 @@ public class Pagamento {
         this.valorPago = valorPago;
         this.metodoPagamento = metodoPagamento != null ? metodoPagamento : MetodoPagamento.PIX;
         this.idConsulta = idConsulta;
+        this.strategy = PagamentoStrategyFactory.obterEstrategia(this.metodoPagamento);
+    }
+
+    // ==========================================
+    // STATIC FACTORY METHODS (Creator Pattern)
+    // ==========================================
+
+    /**
+     * Cria um novo objeto de pagamento consistente para processamento.
+     */
+    public static Pagamento criarPagamento(int idConsulta, double valor, MetodoPagamento metodo) {
+        if (idConsulta <= 0) {
+            throw new IllegalArgumentException("ID da consulta inválido para pagamento.");
+        }
+        if (valor <= 0) {
+            throw new IllegalArgumentException("Valor do pagamento deve ser positivo.");
+        }
+        if (metodo == null) {
+            throw new IllegalArgumentException("Método de pagamento é obrigatório.");
+        }
+
+        return new Pagamento(0, LocalDate.now(), valor, metodo, idConsulta);
     }
 
     /**
-     * Processa o pagamento utilizando o padrão Strategy.
-     * Conforme diagrama de classes do Astah.
+     * Reconstrói um pagamento existente da base de dados.
      */
+    public static Pagamento reconstruir(int idPagamento, LocalDate dataPagamento, double valorPago, MetodoPagamento metodoPagamento, int idConsulta, String codigoTransacao, String comprovante) {
+        Pagamento p = new Pagamento(idPagamento, dataPagamento, valorPago, metodoPagamento, idConsulta);
+        p.setCodigoTransacao(codigoTransacao);
+        p.setComprovante(comprovante);
+        p.setProcessadoComSucesso(true);
+        return p;
+    }
+
+    // ==========================================
+    // MÉTODO DE PROCESSAMENTO VIA STRATEGY
+    // ==========================================
+
     public boolean processarPagamento(Consulta consulta) {
-        PagamentoStrategy strategy = PagamentoStrategyFactory.obterEstrategia(this.metodoPagamento);
+        if (strategy == null) {
+            this.strategy = PagamentoStrategyFactory.obterEstrategia(this.metodoPagamento);
+        }
+
         PagamentoResult resultado = strategy.processar(this.valorPago, consulta);
-        
+        this.processadoComSucesso = resultado.sucesso();
+
         if (resultado.sucesso()) {
             this.codigoTransacao = resultado.codigoTransacao();
             this.comprovante = resultado.comprovante();
-            this.processadoComSucesso = true;
-            return true;
-        } else {
-            this.processadoComSucesso = false;
-            return false;
         }
+
+        return this.processadoComSucesso;
     }
 
-    /**
-     * Sobrecarga sem parâmetros para compatibilidade estrita com a assinatura original do Astah.
-     */
     public boolean processarPagamento() {
-        PagamentoStrategy strategy = PagamentoStrategyFactory.obterEstrategia(this.metodoPagamento);
-        PagamentoResult resultado = strategy.processar(this.valorPago, new Consulta());
-        if (resultado.sucesso()) {
-            this.codigoTransacao = resultado.codigoTransacao();
-            this.comprovante = resultado.comprovante();
-            this.processadoComSucesso = true;
-            return true;
-        }
-        return false;
+        return processarPagamento(null);
     }
 
     // Getters e Setters
@@ -99,6 +128,7 @@ public class Pagamento {
 
     public void setMetodoPagamento(MetodoPagamento metodoPagamento) {
         this.metodoPagamento = metodoPagamento;
+        this.strategy = PagamentoStrategyFactory.obterEstrategia(metodoPagamento);
     }
 
     public int getIdConsulta() {
@@ -125,6 +155,14 @@ public class Pagamento {
         this.comprovante = comprovante;
     }
 
+    public PagamentoStrategy getStrategy() {
+        return strategy;
+    }
+
+    public void setStrategy(PagamentoStrategy strategy) {
+        this.strategy = strategy;
+    }
+
     public boolean isProcessadoComSucesso() {
         return processadoComSucesso;
     }
@@ -136,7 +174,8 @@ public class Pagamento {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Pagamento pagamento)) return false;
+        if (o == null || getClass() != o.getClass()) return false;
+        Pagamento pagamento = (Pagamento) o;
         return idPagamento == pagamento.idPagamento;
     }
 
@@ -147,6 +186,7 @@ public class Pagamento {
 
     @Override
     public String toString() {
-        return "Pagamento #" + idPagamento + " - R$ " + String.format("%.2f", valorPago) + " (" + metodoPagamento + ")";
+        return "Pagamento #" + idPagamento + " - " + metodoPagamento.getDescricao() +
+                " - R$ " + String.format("%.2f", valorPago) + " (" + (processadoComSucesso ? "Confirmado" : "Pendente") + ")";
     }
 }

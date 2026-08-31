@@ -4,8 +4,7 @@ import java.time.LocalDate;
 import java.util.Objects;
 
 /**
- * Entidade Exame conforme modelado no Astah.
- * Representa exames clínicos solicitados ou anexados durante o atendimento.
+ * Entidade de Domínio: Exame Clínico / Laboratorial.
  */
 public class Exame {
     private int idExame;
@@ -16,28 +15,28 @@ public class Exame {
     private int idProntuario;
 
     public Exame() {
+        this.data = LocalDate.now();
+        this.resultado = "Aguardando laudo";
     }
 
     public Exame(int idExame, String tipo, LocalDate data, String resultado, int idConsultaOrigem, int idProntuario) {
         this.idExame = idExame;
-        this.tipo = Objects.requireNonNull(tipo, "Tipo de exame não pode ser nulo").trim();
+        this.tipo = tipo;
         this.data = data != null ? data : LocalDate.now();
-        this.resultado = resultado != null ? resultado.trim() : "Aguardando resultado";
+        this.resultado = resultado != null ? resultado : "Aguardando laudo";
         this.idConsultaOrigem = idConsultaOrigem;
         this.idProntuario = idProntuario;
     }
 
-    /**
-     * Anexa o laudo/resultado do exame.
-     * Conforme diagrama de classes do Astah.
-     */
-    public void anexarResultado(String resultado) {
-        if (resultado != null && !resultado.trim().isEmpty()) {
-            this.resultado = resultado.trim();
-        }
+    // Static Factory Method
+    public static Exame criarSolicitacao(int idConsulta, int idProntuario, String tipo, String resultadoInicial) {
+        return new Exame(0, tipo, LocalDate.now(), resultadoInicial, idConsulta, idProntuario);
     }
 
-    // Getters e Setters
+    public void anexarResultado(String resultado) {
+        this.resultado = resultado;
+    }
+
     public int getIdExame() {
         return idExame;
     }
@@ -55,6 +54,10 @@ public class Exame {
     }
 
     public LocalDate getData() {
+        return data;
+    }
+
+    public LocalDate getDataSolicitacao() {
         return data;
     }
 
@@ -89,7 +92,8 @@ public class Exame {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Exame exame)) return false;
+        if (o == null || getClass() != o.getClass()) return false;
+        Exame exame = (Exame) o;
         return idExame == exame.idExame;
     }
 
@@ -100,6 +104,6 @@ public class Exame {
 
     @Override
     public String toString() {
-        return "Exame [" + tipo + "] - Data: " + data + " - Status/Resultado: " + resultado;
+        return "Exame #" + idExame + ": " + tipo + " - Data: " + data + " | Resultado: " + resultado;
     }
 }

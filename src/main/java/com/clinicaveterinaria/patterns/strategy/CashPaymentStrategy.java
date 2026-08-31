@@ -5,21 +5,19 @@ import com.clinicaveterinaria.entity.enums.MetodoPagamento;
 
 import java.util.UUID;
 
-/**
- * Estratégia concreta para pagamentos em Dinheiro em Espécie.
- */
 public class CashPaymentStrategy implements PagamentoStrategy {
 
     @Override
     public PagamentoResult processar(double valor, Consulta consulta) {
         if (valor <= 0) {
-            return PagamentoResult.falha("Valor para recebimento em espécie deve ser maior que zero.");
+            return PagamentoResult.falha("Valor recebido em dinheiro deve ser maior que zero.");
         }
 
-        String reciboId = "REC-DIN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        String detalhes = "Método: Dinheiro em Espécie | Conferido no Caixa da Recepção";
+        String recibo = "REC-DIN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String nomeAnimal = (consulta != null && consulta.getAnimal() != null) ? consulta.getAnimal().getNome() : "Não especificado";
+        String detalhes = "Recebimento em Espécie no Balcão | Recibo: " + recibo + " | Paciente: " + nomeAnimal;
 
-        return PagamentoResult.sucesso(reciboId, valor, detalhes);
+        return PagamentoResult.sucesso(recibo, valor, detalhes);
     }
 
     @Override
