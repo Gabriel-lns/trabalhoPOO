@@ -20,7 +20,7 @@ O **Sistema de Clínica Veterinária** é uma solução completa para gerenciame
 Desenvolvido para a disciplina de **Programação Orientada a Objetos (POO)**, o sistema foi concebido a partir de rigorosa modelagem conceitual no **Astah UML** e implementado em **Java 21 LTS**, aplicando a arquitetura **BCE (Boundary-Control-Entity)**, os princípios **SOLID** e três **Padrões de Projeto do GoF** (State, Strategy e Factory Method).
 
 > **Autores:** Emily Silva & Gabriel Nunes  
-> **Instituição:** Universidade / Bacharelado em Ciência da Computação  
+> **Instituição:** Instituto Federal Fluminense  
 
 ---
 
