@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/Database-SQLite%20JDBC-003B57?style=for-the-badge&logo=sqlite&logoColor=white" />
   <img src="https://img.shields.io/badge/UI-FlatLaf%20Modern%20Swing-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Tests-37%20Passed%20(JUnit%205)-success?style=for-the-badge&logo=junit5&logoColor=white" />
-  <img src="https://img.shields.io/badge/JaCoCo%20Coverage-82.84%25-brightgreen?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/JaCoCo%20Coverage-81.31%25-brightgreen?style=for-the-badge" />
   <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" />
 </p>
 
@@ -17,16 +17,16 @@
 
 O **Sistema de Clínica Veterinária** é uma solução completa para gerenciamento clínico, prontuário eletrônico imutável, agendamentos com bloqueio de conflito de horários e liquidação financeira multimeios. 
 
-Desenvolvido para a disciplina de **Programação Orientada a Objetos (POO)**, o sistema foi concebido a partir de rigorosa modelagem conceitual no **Astah UML** e implementado em **Java 21 LTS**, aplicando a arquitetura **BCE (Boundary-Control-Entity)**, os princípios **SOLID** e três **Padrões de Projeto do GoF** (State, Strategy e Factory Method).
+Desenvolvido para a disciplina de **Programação Orientada a Objetos (POO)**, o sistema foi concebido a partir de rigorosa modelagem conceitual no **Astah UML** e implementado em **Java 21 LTS**, aplicando a arquitetura **BCE (Boundary-Control-Entity)**, os princípios **SOLID** (com ênfase em **Inversão de Dependência - DIP**) e três **Padrões de Projeto do GoF** (State, Strategy e Factory Method).
 
 > **Autores:** Emily Silva & Gabriel Nunes  
 > **Instituição:** Instituto Federal Fluminense  
 
 ---
 
-## 🏛️ Arquitetura do Sistema (BCE em Camadas)
+## 🏛️ Arquitetura do Sistema (BCE em Camadas com DIP)
 
-O sistema segue a arquitetura **Boundary-Control-Entity (BCE)**, garantindo desacoplamento total entre apresentação, regras de negócio e infraestrutura de dados:
+O sistema segue rigorosamente a arquitetura **Boundary-Control-Entity (BCE)** combinada com o princípio da **Inversão de Dependência (DIP)**:
 
 ```mermaid
 graph TD
@@ -48,10 +48,10 @@ graph TD
     subgraph Patterns ["Design Patterns (GoF)"]
         P_State[Padrão State: ConsultaState]
         P_Strat[Padrão Strategy: PagamentoStrategy]
-        P_Fact[Padrão Factory Method]
+        P_Fact[Padrão Factory Method: Strategy/State/Repository]
     end
 
-    subgraph Entity ["Camada Entity (Domínio de Negócio)"]
+    subgraph Entity ["Camada Entity (Domínio com Static Factory Methods)"]
         E_Tutor[Tutor]
         E_Animal[Animal]
         E_Vet[Veterinario]
@@ -62,9 +62,14 @@ graph TD
         E_Pag[Pagamento]
     end
 
-    subgraph Repository ["Camada Repository & Infraestrutura (SQLite)"]
+    subgraph ReposInterfaces ["Camada Repository (Interfaces Abstratas - DIP)"]
+        IRepos[TutorRepository, AnimalRepository, ConsultaRepository, PagamentoRepository...]
+        Factory[RepositoryFactory]
+    end
+
+    subgraph ReposImpl ["Camada Repository SQLite (Implementações Concretas)"]
         DB[(clinica_veterinaria.db)]
-        Repos[TutorRepo, AnimalRepo, VetRepo, ConsultaRepo, ProntuarioRepo, PagamentoRepo...]
+        SqliteRepos[SqliteConsultaRepo, SqliteAnimalRepo, SqlitePagamentoRepo...]
     end
 
     UI_Agend --> Ctrl_Agend
@@ -78,12 +83,14 @@ graph TD
     Ctrl_Fin --> P_State
     Ctrl_Fin --> E_Pag
 
-    Ctrl_Agend --> Repos
-    Ctrl_Atend --> Repos
-    Ctrl_Fin --> Repos
-    Ctrl_Cad --> Repos
+    Ctrl_Agend -.-> IRepos
+    Ctrl_Atend -.-> IRepos
+    Ctrl_Fin -.-> IRepos
+    Ctrl_Cad -.-> IRepos
 
-    Repos --> DB
+    Factory -.-> IRepos
+    SqliteRepos --> IRepos
+    SqliteRepos --> DB
 ```
 
 ---
@@ -103,10 +110,10 @@ graph TD
 * **Estrutura:** `PagamentoStrategy` (Interface) ➔ `PixPaymentStrategy`, `CreditCardPaymentStrategy`, `DebitCardPaymentStrategy`, `CashPaymentStrategy`.
 * **Motivação Técnica:** Permite intercambiar gateways e algoritmos de processamento financeiro em tempo de execução sem alterar o código do caixa, respeitando o princípio **Open/Closed (OCP)**.
 
-### 3️⃣ Padrão FACTORY METHOD (Criacional)
-* **Localização:** [`com.clinicaveterinaria.patterns.factory`](src/main/java/com/clinicaveterinaria/patterns/factory/)
-* **Estrutura:** `PagamentoStrategyFactory` e `ConsultaStateFactory`.
-* **Motivação Técnica:** Centraliza a criação segura das instâncias de estratégias e estados a partir dos enums do sistema, isolando a camada visual da instanciação de classes concretas.
+### 3️⃣ Padrão FACTORY METHOD & STATIC FACTORIES (Criacional)
+* **Localização:** [`com.clinicaveterinaria.patterns.factory`](src/main/java/com/clinicaveterinaria/patterns/factory/) e [`com.clinicaveterinaria.entity`](src/main/java/com/clinicaveterinaria/entity/)
+* **Estrutura:** `PagamentoStrategyFactory`, `ConsultaStateFactory`, `RepositoryFactory` e Métodos Fábrica Estáticos nas entidades (`Consulta.criarAgendamento(...)`, `Pagamento.criarPagamento(...)`).
+* **Motivação Técnica:** Centraliza a criação segura das instâncias e protege as entidades de nascerem em estado inconsistente (*Creator Pattern / Information Expert*).
 
 ---
 
@@ -114,11 +121,11 @@ graph TD
 
 | Princípio | Aplicação no Projeto |
 | :--- | :--- |
-| **S - Single Responsibility** | Classes coesas: `ControladorFinanceiro` orquestra o pagamento, `PagamentoRepository` cuida do SQLite, e `Pagamento` gerencia as propriedades do faturamento. |
+| **S - Single Responsibility** | Classes coesas: `ControladorFinanceiro` orquestra o pagamento, `SqlitePagamentoRepository` cuida do SQLite, e `Pagamento` gerencia as propriedades do faturamento. |
 | **O - Open / Closed** | O sistema aceita novos métodos de pagamento (ex: *Boleto* ou *Convênio*) criando apenas uma nova classe que implementa `PagamentoStrategy`, sem tocar no código do caixa. |
-| **L - Liskov Substitution** | Qualquer implementação de `ConsultaState` ou `PagamentoStrategy` pode substituir perfeitamente seu contrato base sem causar efeitos colaterais. |
-| **I - Interface Segregation** | Interfaces granulares e estritamente focadas nas operações requeridas (`ConsultaState`, `PagamentoStrategy`). |
-| **D - Dependency Inversion** | Controladores e serviços dependem de abstrações (interfaces e contratos de repositório), permitindo testes isolados com mocks. |
+| **L - Liskov Substitution** | Qualquer implementação de `ConsultaState`, `PagamentoStrategy` ou `ConsultaRepository` pode substituir perfeitamente seu contrato base sem causar efeitos colaterais. |
+| **I - Interface Segregation** | Interfaces granulares e estritamente focadas nas operações requeridas (`ConsultaState`, `PagamentoStrategy`, `TutorRepository`, etc.). |
+| **D - Dependency Inversion (DIP)** | **Rigor Máximo:** Os controladores dependem exclusivamente de interfaces abstratas de repositório (`ConsultaRepository`, `AnimalRepository`), obtidas via `RepositoryFactory`. A camada de negócio não conhece o SQLite. |
 
 ---
 
@@ -131,7 +138,7 @@ graph TD
 
 ---
 
-## 🧪 Engenharia de Qualidade: 37 Testes e JaCoCo (82.84%)
+## 🧪 Engenharia de Qualidade: 37 Testes e JaCoCo (81.31%)
 
 A suíte de testes unitários e de integração cobre todas as regras de negócio, persistência no SQLite e padrões de projeto com **100% de aprovação**:
 
@@ -197,10 +204,11 @@ trabalhoPOO/
 ├── src/
 │   ├── main/java/com/clinicaveterinaria/
 │   │   ├── boundary/          # Telas Swing FlatLaf (MainFrame, Dashboard, Atendimento...)
-│   │   ├── control/           # Controladores BCE (Consulta, Atendimento, Financeiro...)
-│   │   ├── entity/            # Entidades do Modelo (Tutor, Animal, Consulta, Prontuario...)
+│   │   ├── control/           # Controladores BCE dependendo de Interfaces (DIP)
+│   │   ├── entity/            # Entidades com Static Factory Methods (Tutor, Consulta...)
 │   │   ├── patterns/          # Design Patterns (state, strategy, factory)
-│   │   └── repository/        # Persistência SQLite JDBC e SeedDatabase
+│   │   └── repository/        # Interfaces de Persistência e RepositoryFactory (DIP)
+│   │       └── sqlite/        # Implementações Concretas SQLite JDBC
 │   └── test/java/com/clinicaveterinaria/ # 37 Testes Automatizados (JUnit 5)
 ├── clinica_veterinaria.db     # Base de dados relacional SQLite populada
 ├── pom.xml                    # Configuração do Maven, FlatLaf, SQLite e JaCoCo
